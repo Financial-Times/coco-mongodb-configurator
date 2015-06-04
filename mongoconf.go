@@ -124,8 +124,9 @@ func runMongo(host Host, command string) {
 
 }
 
-func addSecondary(master, slave Host) {
-	runMongo(master, fmt.Sprintf("rs.add(\"%s:%d\")", slave.Hostname, slave.Port))
+func addSecondary(primary, slave Host) {
+	log.Printf("adding secondary %v:%d to primary %v:%d\n", slave.Hostname, slave.Port, primary.Hostname, primary.Port)
+	runMongo(primary, fmt.Sprintf("rs.add(\"%s:%d\")", slave.Hostname, slave.Port))
 }
 
 func getMasters(hosts []Host) (masters []Host) {
