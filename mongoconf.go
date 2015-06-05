@@ -74,6 +74,10 @@ func configure(hosts []Host) {
 		master := masters[0]
 		addedSecondary := false
 		for _, host := range hosts {
+			if !addedSecondary {
+				// ensure we do this once per run. sometimes it has become "localhost" which causes pain
+				fixSelfHostPort(master)
+			}
 			if host != master {
 				mi := masterInfo(host)
 				if !mi.IsMaster && !mi.IsSecondary {
@@ -176,11 +180,15 @@ func fixAllRemoved(hosts []Host) {
 func bootStrap(hosts []Host) {
 	fmt.Println("initiating master")
 	runMongo(hosts[0], "rs.initiate()")
-	// we override our host & port here to ensure things work in a NAT environment.
-	runMongo(hosts[0], fmt.Sprintf("var config = rs.config(); if (config.members.length === 1) { config.members[0].host = '%s:%d'; rs.reconfig(config); }", hosts[0].Hostname, hosts[0].Port))
+	fixSelfHostPort(hosts[0])
 	for _, slave := range hosts[1:] {
 		addSecondary(hosts[0], slave)
 	}
+}
+
+func fixSelfHostPort(host Host) {
+	// we override our host & port here to ensure things work in a NAT environment.
+	runMongo(host, fmt.Sprintf("var config = rs.config(); if (config.members.length === 1) { config.members[0].host = '%s:%d'; rs.reconfig(config); }", host.Hostname, host.Port))
 }
 
 func runMongo(host Host, command string) {
