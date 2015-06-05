@@ -121,7 +121,7 @@ func runMongo(host Host, command string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	log.Println(out.String())
 }
 
 func addSecondary(primary, slave Host) {
