@@ -103,7 +103,7 @@ func configured(host Host) bool {
 }
 
 func bootStrap(hosts []Host) {
-	fmt.Printf("initiating master")
+	fmt.Println("initiating master")
 	runMongo(hosts[0], "rs.initiate()")
 	// we override our host & port here to ensure things work in a NAT environment.
 	runMongo(hosts[0], fmt.Sprintf("var config = rs.config(); if (config.members.length === 1) { config.members[0].host = '%s:%d'; rs.reconfig(config); }", hosts[0].Hostname, hosts[0].Port))
