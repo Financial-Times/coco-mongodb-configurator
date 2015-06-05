@@ -68,23 +68,37 @@ func configure(hosts []Host) {
 	}
 
 	masters := getMasters(hosts)
-	if len(masters) != 1 {
-		log.Fatal("replica set seems broken. exiting")
-	}
-	master := masters[0]
-	addedSecondary := false
-	for _, host := range hosts {
-		if host != master {
-			mi := masterInfo(host)
-			if !mi.IsMaster && !mi.IsSecondary {
-				addSecondary(master, host)
-				addedSecondary = true
+
+	if len(masters) == 1 {
+		log.Printf("found master. checking for secondaries to add")
+		master := masters[0]
+		addedSecondary := false
+		for _, host := range hosts {
+			if host != master {
+				mi := masterInfo(host)
+				if !mi.IsMaster && !mi.IsSecondary {
+					addSecondary(master, host)
+					addedSecondary = true
+				}
 			}
 		}
+		if !addedSecondary {
+			log.Printf("no new secondaries added")
+		}
+		return
 	}
-	if !addedSecondary {
-		log.Printf("no new secondaries added")
+
+	if len(masters) > 1 {
+		log.Printf("found %d masters. not good news. not trying to fix")
+		return
 	}
+
+	if len(masters) == 0 && allRemoved(hosts) {
+		log.Println("all instances are REMOVED. let's try to hook them back up again")
+		return
+	}
+
+	log.Fatal("replica set seems broken. exiting")
 
 }
 
@@ -99,7 +113,46 @@ func anyConfigured(hosts []Host) bool {
 
 func configured(host Host) bool {
 	mi := masterInfo(host)
-	return mi.IsMaster || mi.IsSecondary
+	return mi.IsMaster || mi.IsSecondary || removed(host)
+}
+
+func allRemoved(hosts []Host) bool {
+	for _, host := range hosts {
+		if !removed(host) {
+			return false
+		}
+	}
+	return true
+}
+
+func removed(host Host) bool {
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:%d/replSetGetStatus", host.Hostname, host.Adminport), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var response map[string]interface{}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stateStr := response["stateStr"]
+	removed := (stateStr == "REMOVED")
+	//log.Printf("stateStr %v removed %v\n", stateStr, removed)
+
+	return removed
 }
 
 func bootStrap(hosts []Host) {
