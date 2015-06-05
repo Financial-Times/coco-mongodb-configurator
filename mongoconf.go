@@ -95,6 +95,7 @@ func configure(hosts []Host) {
 
 	if len(masters) == 0 && allRemoved(hosts) {
 		log.Println("all instances are REMOVED. let's try to hook them back up again")
+		fixAllRemoved(hosts)
 		return
 	}
 
@@ -153,6 +154,23 @@ func removed(host Host) bool {
 	//log.Printf("stateStr %v removed %v\n", stateStr, removed)
 
 	return removed
+}
+
+func fixAllRemoved(hosts []Host) {
+	// we override our host & port here to ensure things work in a NAT environment.
+	members := make([]map[string]interface{}, len(hosts))
+	for i, h := range hosts {
+		members[i] = make(map[string]interface{})
+		members[i]["_id"] = i
+		members[i]["host"] = fmt.Sprintf("%s:%d", h.Hostname, h.Port)
+	}
+	j, err := json.Marshal(members)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("j %s\n", j)
+	fmt.Printf("forcing %v to be have replica set members %s\n", j)
+	runMongo(hosts[0], fmt.Sprintf("var config = rs.config();  config.members=%s; rs.reconfig(config,{force:true}); ", j))
 }
 
 func bootStrap(hosts []Host) {
