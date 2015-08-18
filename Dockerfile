@@ -1,9 +1,8 @@
-FROM alpine:3.2
+FROM fedora
 ADD mongoconf.go /
-RUN echo "@testing http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
-  && apk --update add go mongodb@testing \
+RUN dnf -y install golang mongodb \
   && go build mongoconf.go \
-  && apk del go \
-  && rm -rf /var/cache/apk/*
+  && dnf -y remove golang \
+  && dnf clean all
 
 CMD /mongoconf $ARGS
